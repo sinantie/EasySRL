@@ -27,9 +27,9 @@ public class FeatureCache {
 	private final List<Map<Category, Double>> wordToCategoryToScore;
 
 	private final List<BilexicalFeature> justPredicateFeaturesCore = new ArrayList<>();
-	private final List<BilexicalFeature> justArgumentFeaturesCore = new ArrayList<>();;
+	private final List<BilexicalFeature> justArgumentFeaturesCore = new ArrayList<>();
 	private final List<BilexicalFeature> justPredicateFeaturesAdjunct = new ArrayList<>();
-	private final List<BilexicalFeature> justArgumentFeaturesAdjunct = new ArrayList<>();;
+	private final List<BilexicalFeature> justArgumentFeaturesAdjunct = new ArrayList<>();
 	private final List<BilexicalFeature> bilexicalFeatures = new ArrayList<>();
 	private final ObjectDoubleHashMap<FeatureKey> featureToScore;
 

@@ -21,8 +21,10 @@ import uk.co.flamingpenguin.jewel.cli.CliFactory;
 import uk.co.flamingpenguin.jewel.cli.Option;
 
 import com.google.common.base.Stopwatch;
+import edu.uw.easysrl.dependencies.AMRLexicon;
 
 import edu.uw.easysrl.dependencies.Coindexation;
+import edu.uw.easysrl.main.ParsePrinter.AMRPrinter;
 import edu.uw.easysrl.semantics.lexicon.CompositeLexicon;
 import edu.uw.easysrl.semantics.lexicon.Lexicon;
 import edu.uw.easysrl.syntax.evaluation.CCGBankEvaluation;
@@ -65,7 +67,7 @@ public class EasySRL {
 		@Option(shortName = "i", defaultValue = "tokenized", description = "(Optional) Input Format: one of \"tokenized\", \"POStagged\" (word|pos), or \"POSandNERtagged\" (word|pos|ner)")
 		String getInputFormat();
 
-		@Option(shortName = "o", description = "Output Format: one of \"logic\", \"srl\", \"srl_indices\", \"ccgbank\", \"html\", \"dependencies\" or \"supertagged\"", defaultValue = "logic")
+		@Option(shortName = "o", description = "Output Format: one of \"logic\", \"srl\", \"srl_indices\", \"ccgbank\", \"html\", \"amr\", \"dependencies\" or \"supertagged\"", defaultValue = "logic")
 		String getOutputFormat();
 
 		@Option(shortName = "a", description = "(Optional) Parsing algorithm: one of \"astar\" or \"cky\"", defaultValue = "astar")
@@ -101,7 +103,8 @@ public class EasySRL {
 		CCGBANK(ParsePrinter.CCGBANK_PRINTER), HTML(ParsePrinter.HTML_PRINTER), SUPERTAGS(ParsePrinter.SUPERTAG_PRINTER), PROLOG(
 				ParsePrinter.PROLOG_PRINTER), EXTENDED(ParsePrinter.EXTENDED_CCGBANK_PRINTER), DEPENDENCIES(
 				new ParsePrinter.DependenciesPrinter()), SRL(ParsePrinter.SRL_PRINTER), SRL_INDICES(
-								ParsePrinter.SRL_PRINTER_WITH_INDICES), LOGIC(ParsePrinter.LOGIC_PRINTER);
+								ParsePrinter.SRL_PRINTER_WITH_INDICES), LOGIC(ParsePrinter.LOGIC_PRINTER),
+                                                                AMR(ParsePrinter.AMR_PRINTER);
 
 		public final ParsePrinter printer;
 
@@ -149,7 +152,11 @@ public class EasySRL {
 			} else {
 				parser = parser2;
 			}
-
+                        if(outputFormat == OutputFormat.AMR) {
+                            final File lexiconFile = new File(commandLineOptions.getModel(), "amrLexicon");
+                            final AMRLexicon lexicon = lexiconFile.exists() ? new AMRLexicon(lexiconFile) : new AMRLexicon();
+                            ((AMRPrinter)ParsePrinter.AMR_PRINTER).setLexicon(lexicon);
+                        }
 			final InputReader reader = InputReader.make(InputFormat.valueOf(commandLineOptions.getInputFormat()
 					.toUpperCase()));
 			if ((outputFormat == OutputFormat.PROLOG || outputFormat == OutputFormat.EXTENDED)
