@@ -39,6 +39,10 @@ public class AMRNode implements Serializable {
         return pos;
     }
 
+    public int getLeafId() {
+        return leafId;
+    }
+
     public boolean isVisited() {
         return visited;
     }

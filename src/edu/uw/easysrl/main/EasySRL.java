@@ -237,7 +237,7 @@ public class EasySRL {
 		}
 	}
 
-	private static PipelineSRLParser makePipelineParser(final File folder,
+	public static PipelineSRLParser makePipelineParser(final File folder,
 			final CommandLineArguments commandLineOptions, final double supertaggerBeam,
 			final boolean outputDependencies) throws IOException {
 		final POSTagger posTagger = POSTagger.getStanfordTagger(new File(folder, "posTagger"));
@@ -290,7 +290,7 @@ public class EasySRL {
 
 	}
 
-	private static Parser makeParser(final CommandLineArguments commandLineOptions, final int maxChartSize,
+	public static Parser makeParser(final CommandLineArguments commandLineOptions, final int maxChartSize,
 			final boolean joint, final Optional<Double> supertaggerWeight) throws IOException {
 		final File modelFolder = Util.getFile(commandLineOptions.getModel());
 		Coindexation.parseMarkedUpFile(new File(modelFolder, "markedup"));
