@@ -8,13 +8,8 @@ import java.util.stream.Collectors;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
-import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multiset;
-import edu.uw.easysrl.dependencies.AMREdge;
-import edu.uw.easysrl.dependencies.AMRGraph;
 import edu.uw.easysrl.dependencies.AMRLexicon;
-import edu.uw.easysrl.dependencies.AMRNode;
 import edu.uw.easysrl.dependencies.ConvertSRLToAMRGraph;
 
 import edu.uw.easysrl.dependencies.ResolvedDependency;
@@ -32,12 +27,6 @@ import edu.uw.easysrl.syntax.grammar.SyntaxTreeNode.SyntaxTreeNodeUnary;
 import edu.uw.easysrl.syntax.grammar.SyntaxTreeNode.SyntaxTreeNodeVisitor;
 import edu.uw.easysrl.syntax.parser.SRLParser.CCGandSRLparse;
 import edu.uw.easysrl.util.Util;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Set;
 
 public abstract class ParsePrinter {
 	public final static CCGBankPrinter CCGBANK_PRINTER = new CCGBankPrinter();

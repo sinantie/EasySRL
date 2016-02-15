@@ -2,6 +2,7 @@ package edu.uw.easysrl.dependencies;
 
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Multiset;
+import edu.uw.easysrl.dependencies.AMRGraph.EasyProposition;
 import edu.uw.easysrl.lemmatizer.MorphaStemmer;
 import edu.uw.easysrl.syntax.grammar.Category;
 import edu.uw.easysrl.syntax.grammar.SyntaxTreeNode;
@@ -21,7 +22,6 @@ import java.util.Set;
 public class ConvertSRLToAMRGraph {
 
     private final SyntaxTreeNode parse;
-    private final List<String> propositions;
     private final AMRLexicon lexicon;
     private final Set<AMRNode> rootNodes;
     private final AMRGraph graph;
@@ -29,7 +29,6 @@ public class ConvertSRLToAMRGraph {
     public ConvertSRLToAMRGraph(SyntaxTreeNode parse, AMRLexicon lexicon) {
         this.parse = parse;
         this.lexicon = lexicon;
-        this.propositions = new ArrayList<>();
         this.rootNodes = new HashSet<>();
         this.graph = new AMRGraph();
         convert();
@@ -53,8 +52,7 @@ public class ConvertSRLToAMRGraph {
                     to = dep.getPropbankArgumentIndex();
                 } else // Draw in some extra CCG dependencies for nouns and adjectives.						
                 // Invert arc direction (used to be from=pred, to=arg)
-                {
-                    if (isCategory(parse, dep.getHead(), Category.ADJECTIVE)
+                 if (isCategory(parse, dep.getHead(), Category.ADJECTIVE)
                             || startsWithPos(parse, dep.getHead(), "JJ")) {
                         from = dep.getArgumentIndex();
                         to = dep.getHead();
@@ -64,7 +62,6 @@ public class ConvertSRLToAMRGraph {
                         to = dep.getArgumentIndex();
                         label = ":unk";
                     }
-                }
                 // take care of preposition nodes: if they already appeared elsewhere, then append their child to their parent      
                 ParentAMRNodeLabel fromNodeLabel = prepNodeIdToParentMap.get(from);
                 AMRNode fromNode;
@@ -112,9 +109,14 @@ public class ConvertSRLToAMRGraph {
         });
     }
 
-    public List<String> getPropositions() {
-        return null;
-    }        
+    public List<EasyProposition> getPropositions() {
+        List<EasyProposition> props = new ArrayList<>();
+        rootNodes.stream().forEach((root) -> {
+            props.addAll(graph.getPropositions(root));
+
+        });
+        return props;
+    }
 
     /**
      *
@@ -321,7 +323,7 @@ public class ConvertSRLToAMRGraph {
         }
         return false;
     }
-    
+
     /**
      *
      * Helper class that stores the source node and the label of an edge in the
@@ -337,8 +339,5 @@ public class ConvertSRLToAMRGraph {
             this.label = label;
         }
     }
-    
-    public class EasyProposition {
-        
-    }
+
 }

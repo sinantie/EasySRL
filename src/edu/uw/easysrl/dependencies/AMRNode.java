@@ -19,6 +19,10 @@ public class AMRNode implements Serializable {
         this.leafId = leafId;
     }
 
+    public AMRNode(AMRNode nodeIn, String conceptIn) {
+        this(conceptIn, nodeIn.varName, nodeIn.pos, nodeIn.leafId);
+    }
+    
     public boolean isBefore(AMRNode node) {
         return node.leafId > leafId;
     }

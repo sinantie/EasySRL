@@ -3,8 +3,10 @@ package edu.uw.easysrl.dependencies;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 public class AMRGraph implements Serializable {
@@ -48,6 +50,15 @@ public class AMRGraph implements Serializable {
         return str;
     }
 
+    public List<EasyProposition> getPropositions(final AMRNode node) {
+        List<EasyProposition> props = new ArrayList<>();
+        Collection<AMREdge> edges = incidenceList.get(node);
+        edges.stream().forEach((edge) -> {
+            props.add(new EasyProposition(node, edge.getTarget(), edge.getLabel()));
+        });
+        return props;
+    }
+
     public void addLabelledEdge(final AMRNode fromNode, final AMRNode toNode, final String label) {
         incidenceList.put(fromNode, new AMREdge(label, toNode));
     }
@@ -78,7 +89,7 @@ public class AMRGraph implements Serializable {
     public Collection<AMREdge> removeAll(AMRNode parent) {
         return incidenceList.removeAll(parent);
     }
-    
+
     public AMRNode getFirstParent(AMRNode node) {
         for (Map.Entry<AMRNode, AMREdge> entry : incidenceList.entries()) {
             if (entry.getValue().getTarget().equals(node)) {
@@ -90,8 +101,8 @@ public class AMRGraph implements Serializable {
 
     public Collection<AMREdge> get(AMRNode parent) {
         return incidenceList.get(parent);
-    } 
-    
+    }
+
     public String getEdgeLabel(AMRNode parent, AMRNode node) {
         for (AMREdge edge : incidenceList.get(parent)) {
             if (edge.getTarget().equals(node)) {
@@ -109,16 +120,19 @@ public class AMRGraph implements Serializable {
     }
 
     /**
-     * 
-     * Check whether graph contains <code>toNode</code> as a source node, or as a target node in an edge, other than 
-     * the one headed by <code>fromNode</code>.
+     *
+     * Check whether graph contains <code>toNode</code> as a source node, or as
+     * a target node in an edge, other than the one headed by
+     * <code>fromNode</code>.
+     *
      * @param fromNode
      * @param toNode
-     * @return 
+     * @return
      */
     public boolean containsEdgeExcluding(final AMRNode fromNode, final AMRNode toNode) {
-        if(incidenceList.containsKey(toNode))
+        if (incidenceList.containsKey(toNode)) {
             return true;
+        }
         for (AMRNode cand : incidenceList.keySet()) {
             if (!cand.equals(fromNode)) {
                 if (incidenceList.get(cand).stream().anyMatch((edge) -> (edge.getTarget().equals(toNode)))) {
@@ -129,4 +143,29 @@ public class AMRGraph implements Serializable {
         return false;
     }
 
+    public class EasyProposition {
+
+        AMRNode predicate, argument;
+        String role;
+
+        public EasyProposition(AMRNode predicate, AMRNode argument, String role) {
+            this.predicate = predicate;
+            this.argument = argument;
+            this.role = role;
+        }
+
+        public AMRNode getPredicate() {
+            return predicate;
+        }
+
+        public AMRNode getArgument() {
+            return argument;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("%s,%s,%s", predicate.getConceptName(), argument.getConceptName(), role);
+        }
+
+    }
 }
