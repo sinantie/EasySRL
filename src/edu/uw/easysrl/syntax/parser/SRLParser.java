@@ -114,7 +114,7 @@ public abstract class SRLParser {
 				return parses
 						.stream()
 						.map(x -> new CCGandSRLparse(x.getObject(), x.getObject().getAllLabelledDependencies(), tokens
-								.getInputWords())).collect(Collectors.toList());
+								.getInputWords(), x.getScore())).collect(Collectors.toList());
 			}
 		}
 
@@ -132,9 +132,15 @@ public abstract class SRLParser {
 		private final List<InputWord> words;
 		private final Table<Integer, Integer, ResolvedDependency> headToArgNumberToDependency = HashBasedTable.create();
 		private final List<SyntaxTreeNodeLeaf> leaves;
-
+                private final double score;
+                
 		private CCGandSRLparse(final SyntaxTreeNode ccgParse, final Collection<ResolvedDependency> dependencyParse,
 				final List<InputWord> words) {
+			this(ccgParse, dependencyParse, words, Double.NEGATIVE_INFINITY);                        
+		}
+                
+		private CCGandSRLparse(final SyntaxTreeNode ccgParse, final Collection<ResolvedDependency> dependencyParse,
+				final List<InputWord> words, final double score) {
 			super();
 			this.ccgParse = ccgParse;
 			this.dependencyParse = dependencyParse;
@@ -143,6 +149,7 @@ public abstract class SRLParser {
 				headToArgNumberToDependency.put(dep.getHead(), dep.getArgNumber(), dep);
 			}
 			this.leaves = ccgParse.getLeaves();
+                        this.score = score;
 		}
 
 		public SyntaxTreeNode getCcgParse() {
@@ -156,6 +163,10 @@ public abstract class SRLParser {
 		public SyntaxTreeNodeLeaf getLeaf(final int wordIndex) {
 			return leaves.get(wordIndex);
 		}
+
+                public double getScore() {
+                    return score;
+                }
 
 		public List<ResolvedDependency> getOrderedDependenciesAtPredicateIndex(final int wordIndex) {
 			final Category c = getLeaf(wordIndex).getCategory();
