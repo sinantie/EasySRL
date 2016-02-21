@@ -8,6 +8,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 public class AMRGraph implements Serializable {
 
@@ -165,6 +166,24 @@ public class AMRGraph implements Serializable {
         @Override
         public String toString() {
             return String.format("%s,%s,%s", predicate.getConceptName(), argument.getConceptName(), role);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            assert obj instanceof EasyProposition;
+            EasyProposition e = (EasyProposition) obj;
+            return predicate.getConceptName().equals(e.getPredicate().getConceptName())
+                    && argument.getConceptName().equals(e.getArgument().getConceptName())
+                    && role.equals(e.role);
+        }
+
+        @Override
+        public int hashCode() {
+            int hash = 7;
+            hash = 37 * hash + Objects.hashCode(this.predicate.getConceptName());
+            hash = 37 * hash + Objects.hashCode(this.argument.getConceptName());
+            hash = 37 * hash + Objects.hashCode(this.role);
+            return hash;
         }
 
     }

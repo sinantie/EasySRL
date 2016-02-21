@@ -136,7 +136,7 @@ public abstract class SRLParser {
                 
 		private CCGandSRLparse(final SyntaxTreeNode ccgParse, final Collection<ResolvedDependency> dependencyParse,
 				final List<InputWord> words) {
-			this(ccgParse, dependencyParse, words, Double.NEGATIVE_INFINITY);                        
+			this(ccgParse, dependencyParse, words, 0.0);                        
 		}
                 
 		private CCGandSRLparse(final SyntaxTreeNode ccgParse, final Collection<ResolvedDependency> dependencyParse,
