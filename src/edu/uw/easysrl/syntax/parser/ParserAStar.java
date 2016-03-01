@@ -22,6 +22,7 @@ import edu.uw.easysrl.syntax.model.Model;
 import edu.uw.easysrl.syntax.model.Model.ModelFactory;
 import edu.uw.easysrl.syntax.parser.ChartCell.Cell1Best;
 import edu.uw.easysrl.syntax.parser.ChartCell.Cell1BestTreeBased;
+import edu.uw.easysrl.syntax.parser.ChartCell.CellNoDynamicProgram;
 import edu.uw.easysrl.syntax.parser.ChartCell.ChartCellFactory;
 import edu.uw.easysrl.syntax.parser.ChartCell.ChartCellNbestFactory;
 import edu.uw.easysrl.syntax.tagger.TaggerEmbeddings;
@@ -37,21 +38,26 @@ public class ParserAStar extends AbstractParser {
 
 	public ParserAStar(final ModelFactory modelFactory, final int maxSentenceLength, final int nbest,
 			final List<Category> validRootCategories, final File modelFolder, final int maxChartSize)
-			throws IOException {
+					throws IOException {
 		super(TaggerEmbeddings.loadCategories(new File(modelFolder, "categories")), maxSentenceLength, nbest,
 				validRootCategories, modelFolder);
 		this.modelFactory = modelFactory;
 		this.maxChartSize = maxChartSize;
 		this.usingDependencies = modelFactory.isUsingDependencies();
-		this.cellFactory = nbest > 1 ? new ChartCellNbestFactory(nbest, nbestBeam, maxSentenceLength,
-				super.lexicalCategories) : modelFactory.isUsingDependencies() ? Cell1Best.factory()
-						: Cell1BestTreeBased.factory();
+		if (!modelFactory.isUsingDynamicProgram()) {
+			this.cellFactory = CellNoDynamicProgram.factory();
+		} else if (nbest > 1) {
+			this.cellFactory = new ChartCellNbestFactory(nbest, nbestBeam, maxSentenceLength, super.lexicalCategories);
+		} else if (modelFactory.isUsingDependencies()) {
+			this.cellFactory = Cell1Best.factory();
+		} else {
+			this.cellFactory = Cell1BestTreeBased.factory();
+		}
 	}
 
 	@Override
 	List<Scored<SyntaxTreeNode>> parseAstar(final InputToParser input) {
-
-		cellFactory.newSentence();
+		ChartCellFactory sentenceCellFactory = cellFactory.forNewSentence();
 		final List<InputWord> sentence = input.getInputWords();
 		final Model model = modelFactory.make(input);
 		final int sentenceLength = sentence.size();
@@ -72,7 +78,7 @@ public class ParserAStar extends AbstractParser {
 		}
 
 		// Dummy final cell that the complete parses are stored in.
-		final ChartCell finalCell = cellFactory.make();
+		final ChartCell finalCell = sentenceCellFactory.make();
 
 		while (chartSize < maxChartSize
 				&& (result.isEmpty() || (result.size() < nbest && !agenda.isEmpty() && agenda.peek().getCost() > nbestBeam
@@ -87,7 +93,7 @@ public class ParserAStar extends AbstractParser {
 			// Try to put an entry in the chart.
 			ChartCell cell = chart[agendaItem.getStartOfSpan()][agendaItem.getSpanLength() - 1];
 			if (cell == null) {
-				cell = cellFactory.make();
+				cell = sentenceCellFactory.make();
 				chart[agendaItem.getStartOfSpan()][agendaItem.getSpanLength() - 1] = cell;
 				cellsStartingAt.get(agendaItem.getStartOfSpan()).add(cell);
 				cellsEndingAt.get(agendaItem.getStartOfSpan() + agendaItem.getSpanLength()).add(cell);
@@ -103,7 +109,7 @@ public class ParserAStar extends AbstractParser {
 						&& (possibleRootCategories.isEmpty() || possibleRootCategories.contains(agendaItem.getParse()
 								.getCategory())) &&
 						// For N-best parsing, the final cell checks if that the final parse is unique. e.g. if it's
-								// dependencies are unique, ignoring the category
+						// dependencies are unique, ignoring the category
 						finalCell.add("", agendaItem)) {
 					result.add(new Scored<>(agendaItem.getParse(), agendaItem.getInsideScore()));
 				}

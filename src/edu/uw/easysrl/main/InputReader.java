@@ -12,16 +12,20 @@ import java.util.List;
 import java.util.Objects;
 import java.util.StringTokenizer;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 
 import edu.uw.Taggerflow;
-import edu.uw.TaggingResult;
+import edu.uw.TaggerflowProtos.TaggedSentence;
+import edu.uw.TaggerflowProtos.TaggedToken;
+import edu.uw.TaggerflowProtos.TaggingResult;
 import edu.uw.easysrl.main.EasySRL.InputFormat;
 import edu.uw.easysrl.syntax.grammar.Category;
 import edu.uw.easysrl.syntax.grammar.SyntaxTreeNode.SyntaxTreeNodeLeaf;
 import edu.uw.easysrl.syntax.tagger.Tagger.ScoredCategory;
+import edu.uw.easysrl.syntax.tagger.TaggerflowLSTM;
 import edu.uw.easysrl.util.Util;
 
 public abstract class InputReader {
@@ -220,8 +224,8 @@ public abstract class InputReader {
 		@Override
 		public InputToParser readInput(final String line) {
 			// TODO quotes
-			return InputToParser.fromTokens(Arrays.asList(line.replaceAll("\"", "").replaceAll("  +", " ").trim()
-					.split(" ")));
+			return InputToParser
+					.fromTokens(Arrays.asList(line.replaceAll("\"", "").replaceAll("  +", " ").trim().split(" ")));
 		}
 	}
 
@@ -349,11 +353,8 @@ public abstract class InputReader {
 					continue; // TODO quotes
 				}
 				if (taggedFields.length < 3) {
-					throw new InputMismatchException(
-							"Invalid input: expected \"word|POS|NER\" but was: "
-									+ entry
-									+ "\n"
-									+ "The C&C can produce this format using: \"bin/pos -model models/pos | bin/ner -model models/ner -ofmt \"%w|%p|%n \\n\"\"");
+					throw new InputMismatchException("Invalid input: expected \"word|POS|NER\" but was: " + entry + "\n"
+							+ "The C&C can produce this format using: \"bin/pos -model models/pos | bin/ner -model models/ner -ofmt \"%w|%p|%n \\n\"\"");
 				}
 				inputWords.add(new InputWord(taggedFields[0], taggedFields[1], taggedFields[2]));
 			}
@@ -382,14 +383,13 @@ public abstract class InputReader {
 	public static class TensorFlowInputReader extends InputReader {
 		private final Taggerflow tagger;
 		private final List<Category> categories;
+		private final int maxBatchSize;
 		private final Stopwatch gpuTime = Stopwatch.createUnstarted();
-		private final Stopwatch otherTime = Stopwatch.createUnstarted();
 
-		public TensorFlowInputReader(final File folder, final List<Category> categories) {
-			tagger = new Taggerflow();
+		public TensorFlowInputReader(final File folder, final List<Category> categories, final int maxBatchSize) {
+			tagger = new Taggerflow(new File(folder, "graph.pb").getAbsolutePath(), folder.getAbsolutePath());
 			this.categories = categories;
-			tagger.initializeTensorflow(new File(folder, "graph.pb").getAbsolutePath(),
-					new File(folder, "spaces").getAbsolutePath());
+			this.maxBatchSize = maxBatchSize;
 		}
 
 		@Override
@@ -401,21 +401,15 @@ public abstract class InputReader {
 			return gpuTime.elapsed(timeUnit);
 		}
 
-		public long getOtherTime(final TimeUnit timeUnit) {
-			return otherTime.elapsed(timeUnit);
-		}
-
 		@Override
 		public Iterable<InputToParser> readFile(final File file) throws IOException {
 			return new Iterable<InputToParser>() {
 				@Override
 				public Iterator<InputToParser> iterator() {
-					final TaggingResult result = tagger.predict(file.getAbsolutePath());
-					final float[][][] probabilities = result.probabilities;
-					final int[][][] tags = result.indices;
-					final String[][] tokens = result.tokens;
-
-					final int numSentences = probabilities.length;
+					gpuTime.start();
+					final TaggingResult result = tagger.predict(file.getAbsolutePath(), maxBatchSize);
+					gpuTime.stop();
+					final int numSentences = result.getSentenceCount();
 
 					return new Iterator<InputToParser>() {
 						int i = 0;
@@ -427,35 +421,12 @@ public abstract class InputReader {
 
 						@Override
 						public InputToParser next() {
-							final float[][] scoresForWords = probabilities[i];
-							final List<List<ScoredCategory>> tagDist = new ArrayList<>(scoresForWords.length);
-							for (int j = 0; j < scoresForWords.length; j++) {
-								final float[] scoresForWord = scoresForWords[j];
-								final List<ScoredCategory> tagsForWord = new ArrayList<>(scoresForWord.length);
-								int maxIndex = -1;
-								double maxScore = -1;
-								for (int k = 0; k < scoresForWord.length; k++) {
-									final double logScore = Math.log(scoresForWord[k]);
+							TaggedSentence sentence = result.getSentence(i);
+							final List<List<ScoredCategory>> tagDist = TaggerflowLSTM.getScoredCategories(sentence,
+									categories);
+							final List<InputWord> words = sentence.getTokenList().stream().map(TaggedToken::getWord)
+									.map(InputWord::new).collect(Collectors.toList());
 
-									if (logScore > maxScore) {
-										maxIndex = k;
-										maxScore = logScore;
-									}
-
-									tagsForWord.add(new ScoredCategory(categories.get(tags[i][j][k]), logScore));
-								}
-
-								if (maxIndex > 0) {
-									// The parser expects the first supertag in the list to be the highest scoring one,
-									// so swap them. Pretty hacky...
-									final ScoredCategory first = tagsForWord.get(0);
-									tagsForWord.set(0, tagsForWord.get(maxIndex));
-									tagsForWord.set(maxIndex, first);
-								}
-
-								tagDist.add(tagsForWord);
-							}
-							final List<InputWord> words = InputWord.listOf(tokens[i]);
 							i++;
 							if (words.size() == 0) {
 								return next();// FIXME sentences not parsed by TensorFlow
