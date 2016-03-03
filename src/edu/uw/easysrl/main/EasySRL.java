@@ -1,11 +1,5 @@
 package edu.uw.easysrl.main;
 
-import com.google.common.base.Stopwatch;
-
-import uk.co.flamingpenguin.jewel.cli.ArgumentValidationException;
-import uk.co.flamingpenguin.jewel.cli.CliFactory;
-import uk.co.flamingpenguin.jewel.cli.Option;
-
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
@@ -22,7 +16,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import uk.co.flamingpenguin.jewel.cli.ArgumentValidationException;
+import uk.co.flamingpenguin.jewel.cli.CliFactory;
+import uk.co.flamingpenguin.jewel.cli.Option;
+
+import com.google.common.base.Stopwatch;
 import edu.uw.easysrl.dependencies.AMRLexicon;
+
 import edu.uw.easysrl.dependencies.Coindexation;
 import edu.uw.easysrl.main.ParsePrinter.AMRPrinter;
 import edu.uw.easysrl.semantics.lexicon.CompositeLexicon;
@@ -79,8 +80,7 @@ public class EasySRL {
 		@Option(shortName = "n", defaultValue = "1", description = "(Optional) Number of parses to return per sentence. Values >1 are only supported for A* parsing. Defaults to 1.")
 		int getNbest();
 
-		@Option(shortName = "r", defaultValue = { "S[dcl]", "S[wq]", "S[q]", "S[b]\\NP",
-				"NP" }, description = "(Optional) List of valid categories for the root node of the parse. Defaults to: S[dcl] S[wq] S[q] NP S[b]\\NP")
+		@Option(shortName = "r", defaultValue = { "S[dcl]", "S[wq]", "S[q]", "S[b]\\NP", "NP" }, description = "(Optional) List of valid categories for the root node of the parse. Defaults to: S[dcl] S[wq] S[q] NP S[b]\\NP")
 		List<Category> getRootCategories();
 
 		@Option(defaultValue = "0.01", description = "(Optional) Prunes lexical categories whose probability is less than this ratio of the best category. Decreasing this value will slightly improve accuracy, and give more varied n-best output, but decrease speed. Defaults to 0.01 (currently only used for the joint model).")
@@ -199,8 +199,8 @@ public class EasySRL {
 						@Override
 						public void run() {
 
-							final List<CCGandSRLparse> parses = parser
-									.parseTokens(reader.readInput(line).getInputWords());
+							final List<CCGandSRLparse> parses = parser.parseTokens(reader.readInput(line)
+									.getInputWords());
 							final String output = printer.printJointParses(parses, id2);
 							parsedSentences.getAndIncrement();
 							synchronized (printer) {
@@ -228,8 +228,8 @@ public class EasySRL {
 			final DecimalFormat twoDP = new DecimalFormat("#.##");
 
 			System.err.println("Sentences parsed: " + parsedSentences.get());
-			System.err.println(
-					"Speed: " + twoDP.format(1000.0 * parsedSentences.get() / timer.elapsed(TimeUnit.MILLISECONDS))
+			System.err.println("Speed: "
+					+ twoDP.format(1000.0 * parsedSentences.get() / timer.elapsed(TimeUnit.MILLISECONDS))
 							+ " sentences per second");
 
 		} catch (final ArgumentValidationException e) {
@@ -243,13 +243,12 @@ public class EasySRL {
 			final boolean outputDependencies) throws IOException {
 		final POSTagger posTagger = POSTagger.getStanfordTagger(new File(folder, "posTagger"));
 		final File labelClassifier = new File(folder, "labelClassifier");
-		final LabelClassifier classifier = labelClassifier.exists() && outputDependencies
-				? Util.deserialize(labelClassifier) : CCGBankEvaluation.dummyLabelClassifier;
+		final LabelClassifier classifier = labelClassifier.exists() && outputDependencies ? Util
+				.deserialize(labelClassifier) : CCGBankEvaluation.dummyLabelClassifier;
 
-		return new PipelineSRLParser(
-				EasySRL.makeParser(folder.getAbsolutePath(), supertaggerBeam, ParsingAlgorithm.ASTAR, 100000, false,
-						Optional.empty(), commandLineOptions.getNbest(), commandLineOptions.getMaxLength()),
-				classifier, posTagger);
+				return new PipelineSRLParser(EasySRL.makeParser(folder.getAbsolutePath(), supertaggerBeam,
+				ParsingAlgorithm.ASTAR, 100000, false, Optional.empty(), commandLineOptions.getNbest(),
+				commandLineOptions.getMaxLength()), classifier, posTagger);
 	}
 
 	public static Parser makeParser(final File modelFolder, final Optional<Double> supertaggerWeight)
@@ -324,7 +323,6 @@ public class EasySRL {
 	}
 
 	public static Parser makeParser(final CommandLineArguments commandLineOptions, final int maxChartSize,
-//			final boolean joint, final Optional<Double> supertaggerWeight) throws IOException {
 			final boolean joint, final Optional<Double> supertaggerWeight, boolean loadSupertagger) throws IOException {
 		final File modelFolder = Util.getFile(commandLineOptions.getModel());
 		Coindexation.parseMarkedUpFile(new File(modelFolder, "markedup"));

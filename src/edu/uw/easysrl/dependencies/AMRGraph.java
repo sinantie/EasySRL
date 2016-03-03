@@ -54,7 +54,9 @@ public class AMRGraph implements Serializable {
     public List<EasyProposition> getPropositions(final AMRNode node) {
         List<EasyProposition> props = new ArrayList<>();
         Collection<AMREdge> edges = incidenceList.get(node);
-        edges.stream().forEach((edge) -> {
+        edges.stream().filter((e) -> {
+            return !(e.getTarget().getConceptName().equals("unk") || 
+                    node.getConceptName().equals("unk"));}).forEach((edge) -> {
             props.add(new EasyProposition(node, edge.getTarget(), edge.getLabel()));
         });
         return props;
@@ -159,8 +161,20 @@ public class AMRGraph implements Serializable {
             return predicate;
         }
 
+        public String getPredicateStr() {
+            return predicate.getConceptName();
+        }
+        
         public AMRNode getArgument() {
             return argument;
+        }
+
+        public String getArgumentStr() {
+            return argument.getConceptName();
+        }
+        
+        public String getRole() {
+            return role;
         }
 
         @Override

@@ -95,7 +95,7 @@ public class ConvertSRLToAMRGraph {
         // tackle predicate adjectives ('noun is adj') and 'noun is noun' cases, by introducing the :domain edge
         processCopulaNodes(copulaNodes, rootNodes, toNodes, graph);
         processPrepositionNodes(rootNodes, graph);
-        assert !rootNodes.isEmpty() : "No root(s) node(s) found";
+//        assert !rootNodes.isEmpty() : "No root(s) node(s) found";
     }
 
     public void printAmrGraph(final StringBuilder result) {
