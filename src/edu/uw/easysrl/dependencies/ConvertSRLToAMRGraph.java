@@ -108,6 +108,11 @@ public class ConvertSRLToAMRGraph {
             //result.append("\n");
         });
     }
+    
+    public void printAmrPropositions(final StringBuilder result) {
+        
+        getPropositions().stream().forEach((p) -> {result.append(p).append("\n");});
+    }
 
     public List<EasyProposition> getPropositions() {
         List<EasyProposition> props = new ArrayList<>();
