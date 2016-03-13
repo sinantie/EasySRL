@@ -92,10 +92,19 @@ public class FeatureCache {
 		final double justPredicateScore = predicateLabelToScore.getOrDefault(role, Double.MIN_VALUE);
 		if (justPredicateScore == Double.MIN_VALUE) {
 			double score = 0.0;
-			for (final BilexicalFeature feature : role.isCoreArgument() ? justPredicateFeaturesCore
-					: justPredicateFeaturesAdjunct) {
-				score += feature.getFeatureScore(words, role, predicateIndex, argumentIndex, featureToScore);
-			}
+//			for (final BilexicalFeature feature : role.isCoreArgument() ? justPredicateFeaturesCore
+//					: justPredicateFeaturesAdjunct) {
+//				score += feature.getFeatureScore(words, role, predicateIndex, argumentIndex, featureToScore);
+//			}
+                        if(role.isCoreArgument()) {
+                            score = justPredicateFeaturesCore.stream()
+                                    .map((feature) -> feature.getFeatureScore(words, role, predicateIndex, argumentIndex, featureToScore))
+                                    .reduce(score, (accumulator, _item) -> accumulator + _item);
+                        } else {
+                            score = justPredicateFeaturesAdjunct.stream()
+                                    .map((feature) -> feature.getFeatureScore(words, role, predicateIndex, argumentIndex, featureToScore))
+                                    .reduce(score, (accumulator, _item) -> accumulator + _item);
+                        }			
 
 			predicateLabelToScore.put(role, score);
 			result += score;
@@ -107,11 +116,20 @@ public class FeatureCache {
 		// dependencies.
 		final double justArgumentScore = argumentLabelToScore.getOrDefault(role, Double.MIN_VALUE);
 		if (justArgumentScore == Double.MIN_VALUE) {
-			double score = 0.0;
-			for (final BilexicalFeature feature : role.isCoreArgument() ? justArgumentFeaturesCore
-					: justArgumentFeaturesAdjunct) {
-				score += feature.getFeatureScore(words, role, predicateIndex, argumentIndex, featureToScore);
-			}
+			double score = 0.0;                        
+//                        for (final BilexicalFeature feature : role.isCoreArgument() ? justArgumentFeaturesCore
+//					: justArgumentFeaturesAdjunct) {
+//				score += feature.getFeatureScore(words, role, predicateIndex, argumentIndex, featureToScore);
+//			}
+                        if(role.isCoreArgument()) {
+                            score = justArgumentFeaturesCore.stream().
+                                    map((feature) -> feature.getFeatureScore(words, role, predicateIndex, argumentIndex, featureToScore))
+                                    .reduce(score, (accumulator, _item) -> accumulator + _item);
+                        } else {
+                            score = justArgumentFeaturesAdjunct.stream().
+                                    map((feature) -> feature.getFeatureScore(words, role, predicateIndex, argumentIndex, featureToScore))
+                                    .reduce(score, (accumulator, _item) -> accumulator + _item);
+                        }			
 
 			argumentLabelToScore.put(role, score);
 			result += score;
@@ -119,10 +137,12 @@ public class FeatureCache {
 			result += justArgumentScore;
 		}
 
-		// Bilexical features.
-		for (final BilexicalFeature feature : bilexicalFeatures) {
-			result += feature.getFeatureScore(words, role, predicateIndex, argumentIndex, featureToScore);
-		}
+            // Bilexical features.
+//		for (final BilexicalFeature feature : bilexicalFeatures) {
+//			result += feature.getFeatureScore(words, role, predicateIndex, argumentIndex, featureToScore);
+//		}
+                result = bilexicalFeatures.stream()
+                        .map((feature) -> feature.getFeatureScore(words, role, predicateIndex, argumentIndex, featureToScore)).reduce(result, (accumulator, _item) -> accumulator + _item);
 
 		return result;
 	}

@@ -13,58 +13,62 @@ import edu.uw.easysrl.syntax.tagger.Tagger;
 
 public class DenseLexicalFeature extends LexicalCategoryFeature {
 
-	private final transient Tagger tagger;
+    private final transient Tagger tagger;
 
-	/**
-	 *
-	 */
-	private static final long serialVersionUID = 5203606720996573193L;
+    /**
+     *
+     */
+    private static final long serialVersionUID = 5203606720996573193L;
 
-	private final int id = -1;
+    private final int id = -1;
 
-	public DenseLexicalFeature(final File modelFolder, final double supertaggerBeam) throws IOException {
+    public DenseLexicalFeature(final File modelFolder, final double supertaggerBeam) throws IOException {
 
-		this.tagger = Tagger.make(modelFolder, supertaggerBeam, 50, null);
+        this.tagger = Tagger.make(modelFolder, supertaggerBeam, 50, null);
 
-	}
+    }
 
-	/**
-	 * Normalizes words by lower-casing and replacing numbers with '#'/
-	 */
-	private final static Pattern numbers = Pattern.compile("[0-9]");
+    public DenseLexicalFeature(Tagger tagger) {
+        this.tagger = tagger;
+    }
 
-	public static String normalize(String word) {
-		word = numbers.matcher(word.toLowerCase()).replaceAll("#");
-		return word;
-	}
+    /**
+     * Normalizes words by lower-casing and replacing numbers with '#'/
+     */
+    private final static Pattern numbers = Pattern.compile("[0-9]");
 
-	/**
-	 * This will be really slow if using the LSTM...
-	 */
-	@Override
-	public double getValue(final List<InputWord> sentence, final int word, final Category category) {
-		return tagger.getCategoryScores(sentence, 1.0).get(word).get(category);
-	}
+    public static String normalize(String word) {
+        word = numbers.matcher(word.toLowerCase()).replaceAll("#");
+        return word;
+    }
 
-	@Override
-	public FeatureKey getFeatureKey(final List<InputWord> inputWords, final int wordIndex, final Category category) {
-		return null;
-	}
+    /**
+     * This will be really slow if using the LSTM...
+     */
+    @Override
+    public double getValue(final List<InputWord> sentence, final int word, final Category category) {
+        return tagger.getCategoryScores(sentence, 1.0).get(word).get(category);
+    }
 
-	private final FeatureKey defaultKey = hash(id);
+    @Override
+    public FeatureKey getFeatureKey(final List<InputWord> inputWords, final int wordIndex, final Category category) {
+        return null;
+    }
 
-	@Override
-	public FeatureKey getDefault() {
-		return defaultKey;
-	}
+    private final FeatureKey defaultKey = hash(id);
 
-	@Override
-	public void resetDefaultIndex() {
-		// Do nothing.
-	}
+    @Override
+    public FeatureKey getDefault() {
+        return defaultKey;
+    }
 
-	public List<Map<Category, Double>> getCategoryScores(final List<InputWord> words, final double supertaggerWeight) {
-		return tagger.getCategoryScores(words, supertaggerWeight);
-	}
+    @Override
+    public void resetDefaultIndex() {
+        // Do nothing.
+    }
+
+    public List<Map<Category, Double>> getCategoryScores(final List<InputWord> words, final double supertaggerWeight) {
+        return tagger.getCategoryScores(words, supertaggerWeight);
+    }
 
 }

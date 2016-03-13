@@ -12,6 +12,7 @@ import com.google.common.collect.ImmutableSet;
 import edu.uw.easysrl.syntax.model.feature.Feature.BinaryFeature;
 import edu.uw.easysrl.syntax.model.feature.Feature.RootCategoryFeature;
 import edu.uw.easysrl.syntax.model.feature.Feature.UnaryRuleFeature;
+import edu.uw.easysrl.syntax.tagger.Tagger;
 
 public class FeatureSet implements Serializable {
 
@@ -51,6 +52,11 @@ public class FeatureSet implements Serializable {
 	 */
 	public FeatureSet setSupertaggingFeature(final File model, final double supertaggerBeam) throws IOException {
 		return new FeatureSet(new DenseLexicalFeature(model, supertaggerBeam), dependencyFeatures,
+				argumentSlotFeatures, unaryRuleFeatures, prepositionFeatures, rootFeatures, binaryFeatures);
+	}
+
+        public FeatureSet setSupertaggingFeature(final Tagger tagger) throws IOException {
+		return new FeatureSet(new DenseLexicalFeature(tagger), dependencyFeatures,
 				argumentSlotFeatures, unaryRuleFeatures, prepositionFeatures, rootFeatures, binaryFeatures);
 	}
 

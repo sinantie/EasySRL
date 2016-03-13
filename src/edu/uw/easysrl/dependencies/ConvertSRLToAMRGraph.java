@@ -25,9 +25,20 @@ public class ConvertSRLToAMRGraph {
     private final AMRLexicon lexicon;
     private final Set<AMRNode> rootNodes;
     private final AMRGraph graph;
-
+    private List<ResolvedDependency> dependencies;
+    
     public ConvertSRLToAMRGraph(SyntaxTreeNode parse, AMRLexicon lexicon) {
         this.parse = parse;
+        this.dependencies = null;
+        this.lexicon = lexicon;
+        this.rootNodes = new HashSet<>();
+        this.graph = new AMRGraph();
+        convert();
+    }
+    
+    public ConvertSRLToAMRGraph(SyntaxTreeNode parse, List<ResolvedDependency> dependencies, AMRLexicon lexicon) {
+        this.parse = parse;
+        this.dependencies = dependencies;
         this.lexicon = lexicon;
         this.rootNodes = new HashSet<>();
         this.graph = new AMRGraph();
@@ -41,6 +52,7 @@ public class ConvertSRLToAMRGraph {
         Set<AMRNode> copulaNodes = new HashSet<>();
         Map<Integer, ParentAMRNodeLabel> prepNodeIdToParentMap = new HashMap<>();
         for (final ResolvedDependency dep : parse.getAllLabelledDependencies()) {
+//        for (final ResolvedDependency dep : dependencies) {
             if (showDependency(dep, parse)) {
 
                 String label;
