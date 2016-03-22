@@ -21,7 +21,7 @@ public class BatchUtil {
 
 	private static InputToParser toParserInput(List<InputWord> words,
 			List<List<Tagger.ScoredCategory>> tagDistribution) {
-		Preconditions.checkState(words.size() == tagDistribution.size());
+//		Preconditions.checkState(words.size() == tagDistribution.size());
 		return new InputToParser(words, null, tagDistribution, true);
 	}
 
