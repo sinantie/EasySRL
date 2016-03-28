@@ -118,9 +118,9 @@ public abstract class ClassifierTrainer<T extends AbstractTrainingExample<L>, F 
 
 			for (final L label : frames) {
 				double score = 0.0;
-				for (final F feature : features) {
-					score += weights[feature.getIndex(ex, featureToIndex, label)];
-				}
+                                score = features.parallelStream()
+                                        .map((feature) -> weights[feature.getIndex(ex, featureToIndex, label)])
+                                        .reduce(score, (accumulator, _item) -> accumulator + _item);
 
 				if (score > bestScore) {
 					bestLabel = label;

@@ -727,6 +727,7 @@ public abstract class ParsePrinter {
 		@Override
 		protected void printParse(final SyntaxTreeNode parse, final int sentenceNumber, final StringBuilder result) {
                         ConvertSRLToAMRGraph conv = new ConvertSRLToAMRGraph(parse, lexicon);
+//                        ConvertSRLToAMRGraph conv = new ConvertSRLToAMRGraph(parse, parse.getResolvedUnlabelledDependencies(), lexicon);
                         conv.printAmrGraph(result);
                         result.append("\n");
                         conv.printAmrPropositions(result);

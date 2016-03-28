@@ -51,14 +51,32 @@ public class AMRGraph implements Serializable {
         return str;
     }
 
+    public void unvisit(final AMRNode node) {
+        node.setVisited(false);
+        incidenceList.values().parallelStream().forEach(edge -> edge.getTarget().setVisited(false));
+    }
+    
+    public void getPropositions(final AMRNode node, final List<EasyProposition> props) {                
+        if (!node.isVisited()) {// don't re-visit children of re-entrancies                    
+            node.setVisited(true);
+            Collection<AMREdge> edges = incidenceList.get(node);
+            for (AMREdge edge : edges) {
+                if (!(edge.getTarget().getConceptName().equals("unk")
+                        || node.getConceptName().equals("unk"))) {
+                    props.add(new EasyProposition(node, edge.getTarget(), edge.getLabel()));
+                    getPropositions(edge.getTarget(), props);
+                }
+            }
+        }
+    }
+
     public List<EasyProposition> getPropositions(final AMRNode node) {
         List<EasyProposition> props = new ArrayList<>();
         Collection<AMREdge> edges = incidenceList.get(node);
-        edges.stream().filter((e) -> {
-            return !(e.getTarget().getConceptName().equals("unk") || 
-                    node.getConceptName().equals("unk"));}).forEach((edge) -> {
-            props.add(new EasyProposition(node, edge.getTarget(), edge.getLabel()));
-        });
+        edges.stream()
+                .filter(edge -> !(edge.getTarget().getConceptName().equals("unk")
+                        || node.getConceptName().equals("unk")))
+                .forEach(edge -> props.add(new EasyProposition(node, edge.getTarget(), edge.getLabel())));
         return props;
     }
 
@@ -164,7 +182,7 @@ public class AMRGraph implements Serializable {
         public String getPredicateStr() {
             return predicate.getConceptName();
         }
-        
+
         public AMRNode getArgument() {
             return argument;
         }
@@ -172,7 +190,7 @@ public class AMRGraph implements Serializable {
         public String getArgumentStr() {
             return argument.getConceptName();
         }
-        
+
         public String getRole() {
             return role;
         }
