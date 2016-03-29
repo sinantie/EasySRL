@@ -42,7 +42,7 @@ public class DependencyGenerator {
 		final AddDepenendenciesVisitor visitor = new AddDepenendenciesVisitor(deps);
 		raw.accept(visitor);
 		final SyntaxTreeNode result = visitor.stack.pop();
-		Preconditions.checkState(visitor.stack.size() == 0);
+		Preconditions.checkState(visitor.stack.isEmpty());
 		return result;
 	}
 

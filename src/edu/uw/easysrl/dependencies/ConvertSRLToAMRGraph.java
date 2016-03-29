@@ -39,7 +39,7 @@ public class ConvertSRLToAMRGraph {
         this.lexicon = lexicon;
         this.rootNodes = new HashSet<>();
         this.graph = new AMRGraph();
-        convert(dependencies);
+        convertUnlabelled(dependencies);
     }
 
     public ConvertSRLToAMRGraph(SyntaxTreeNode parse, List<ResolvedDependency> dependencies, AMRLexicon lexicon) {
@@ -57,9 +57,9 @@ public class ConvertSRLToAMRGraph {
         Set<AMRNode> copulaNodes = new HashSet<>();
         Map<Integer, ParentAMRNodeLabel> prepNodeIdToParentMap = new HashMap<>();
         List<ResolvedDependency> list = dependencies == null ? parse.getAllLabelledDependencies() : dependencies;
-        for (final ResolvedDependency dep : list) {
+        for (final ResolvedDependency dep : list) {            
             if (showDependency(dep, parse)) {
-
+                System.out.println(dependencyToString(parse, dep));
                 String label;
                 final int from, to;
                 if (dep.getSemanticRole() != SRLFrame.NONE) {
@@ -117,28 +117,28 @@ public class ConvertSRLToAMRGraph {
 //        assert !rootNodes.isEmpty() : "No root(s) node(s) found";
     }
 
-    private void convert(Collection<UnlabelledDependency> dependencies) {
+    private void convertUnlabelled(Collection<UnlabelledDependency> dependencies) {
         Map<Integer, AMRNode> leafIdToNode = new HashMap<>();
         Multiset<Character> varCounter = HashMultiset.create();
         Set<AMRNode> toNodes = new HashSet<>();
         Set<AMRNode> copulaNodes = new HashSet<>();
         Map<Integer, ParentAMRNodeLabel> prepNodeIdToParentMap = new HashMap<>();
-        for (final UnlabelledDependency dep : dependencies) {
+        for (final UnlabelledDependency dep : dependencies) {            
             if (showDependency(dep, parse)) {
-
+                System.out.println(dependencyToString(parse, dep));
                 String label;
                 final int from, to;
-                if (startsWithPos(parse, dep.getHead(), "VB")) {
-                    // Draw adjuncts PropBank-style, from the predicate to the modifier.
-                    label = ":AVNUM" + dep.getArgNumber();
-                    from = dep.getHead();
-                    to = dep.getFirstArgumentIndex();
-                } else if (startsWithPos(parse, dep.getFirstArgumentIndex(), "VB")) {
-                    // Draw adjuncts PropBank-style, from the predicate to the modifier.
-                    label = ":AVNUM" + dep.getArgNumber();                    
-                    from = dep.getFirstArgumentIndex();
-                    to = dep.getHead();
-                } else // Draw in some extra CCG dependencies for nouns and adjectives.
+//                if (startsWithPos(parse, dep.getHead(), "VB")) {
+//                    // Draw adjuncts PropBank-style, from the predicate to the modifier.
+//                    label = ":AVNUM" + dep.getArgNumber();
+//                    from = dep.getHead();
+//                    to = dep.getFirstArgumentIndex();
+//                } else if (startsWithPos(parse, dep.getFirstArgumentIndex(), "VB")) {
+//                    // Draw adjuncts PropBank-style, from the predicate to the modifier.
+//                    label = ":AVNUM" + dep.getArgNumber();                    
+//                    from = dep.getFirstArgumentIndex();
+//                    to = dep.getHead();
+//                } else // Draw in some extra CCG dependencies for nouns and adjectives.
                        // Invert arc direction (used to be from=pred, to=arg)
 //                {
                 if (isCategory(parse, dep.getHead(), Category.ADJECTIVE)
@@ -151,8 +151,11 @@ public class ConvertSRLToAMRGraph {
 //                        from = dep.getFirstArgumentIndex();
 //                        to = dep.getHead();
 //                        label = ":APREPNUM" + dep.getFirstArgumentIndex();
+                } else if(dep.getCategory().isFunctionIntoModifier()) {
+                    from = dep.getFirstArgumentIndex();
+                    to = dep.getHead();
+                    label = String.format(":%s_%s", getWord(parse, to), dep.getCategory());
                 } else {
-//                        SyntaxTreeNode.SyntaxTreeNodeLeaf predicateNode = parse.getLeaves().get(dep.getHead());
                     from = dep.getHead();
                     to = dep.getFirstArgumentIndex();
 //                        label = ":unk";
@@ -175,8 +178,8 @@ public class ConvertSRLToAMRGraph {
                 // particle arguments: don't add separate edge, but append them to predicate node name
                 if (isCategory(parse, to, Category.PR)) {
                     fromNode.setConceptName(String.format("%s-%s", fromNode.getConceptName(), parse.getLeaves().get(to).getWord()));
-                } else if (startsWithPos(parse, to, "IN")) { // make note of preposition node and its' parent, but don't add to incidence list
-                    prepNodeIdToParentMap.put(to, new ParentAMRNodeLabel(fromNode, label));
+//                } else if (startsWithPos(parse, to, "IN")) { // make note of preposition node and its' parent, but don't add to incidence list
+//                    prepNodeIdToParentMap.put(to, new ParentAMRNodeLabel(fromNode, label));
                 } else {
                     AMRNode toNode = getNode(parse, leafIdToNode, varCounter, to);
                     toNodes.add(toNode);
@@ -190,8 +193,8 @@ public class ConvertSRLToAMRGraph {
         } // for
         rootNodes.removeAll(toNodes); // root nodes are only the ones that have no inner edge pointing at them.            
         // tackle predicate adjectives ('noun is adj') and 'noun is noun' cases, by introducing the :domain edge
-        processCopulaNodes(copulaNodes, rootNodes, toNodes, graph);
-        processPrepositionNodes(rootNodes, graph);
+//        processCopulaNodes(copulaNodes, rootNodes, toNodes, graph);
+//        processPrepositionNodes(rootNodes, graph);
 //        assert !rootNodes.isEmpty() : "No root(s) node(s) found";
     }
 
@@ -374,6 +377,22 @@ public class ConvertSRLToAMRGraph {
         return node.getConceptName().equals("be");
     }
 
+    private String getWord(final SyntaxTreeNode parse, final int leafId) {
+        return parse.getLeaves().get(leafId).getWord();
+    }
+    
+    private String dependencyToString(final SyntaxTreeNode parse, UnlabelledDependency dep) {
+        int head = dep.getHead();
+        int arg = dep.getFirstArgumentIndex();
+        return String.format("%s\t%s -> %s [%s] %s %s", dep, getWord(parse, head), getWord(parse, arg), dep.getArgNumber(), dep.getCategory(), dep.getCategory().isFunctionIntoModifier());
+    }
+    
+    private String dependencyToString(final SyntaxTreeNode parse, ResolvedDependency dep) {
+        int head = dep.getPropbankPredicateIndex();
+        int arg = dep.getPropbankArgumentIndex();
+        return String.format("%s\t%s -> %s [%s] %s %s", dep, getWord(parse, head), getWord(parse, arg), dep.getArgument(), dep.getCategory(), dep.getCategory().isFunctionIntoModifier());
+    }
+    
     /**
      *
      * Decide which dependencies are worth showing.
