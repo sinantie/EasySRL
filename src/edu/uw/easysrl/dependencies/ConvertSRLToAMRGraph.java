@@ -61,7 +61,7 @@ public class ConvertSRLToAMRGraph {
         List<ResolvedDependency> list = dependencies == null ? parse.getAllLabelledDependencies() : dependencies;
         for (final ResolvedDependency dep : list) {
             if (showDependency(dep, parse)) {
-                System.out.println(dependencyToString(parse, dep));
+//                System.out.println(dependencyToString(parse, dep));
                 String label;
                 final int from, to;
                 if (dep.getSemanticRole() != SRLFrame.NONE) {
@@ -124,7 +124,7 @@ public class ConvertSRLToAMRGraph {
         Multiset<Character> varCounter = HashMultiset.create();
         Set<AMRNode> toNodes = new HashSet<>();
         Set<AMRNode> copulaNodes = new HashSet<>();
-        Multimap<Integer, ParentAMRNodeLabel> prepNodeIdToParentMap = ArrayListMultimap.create();
+        Multimap<AMRNode, ParentAMRNodeLabel> prepNodeIdToParentMap = ArrayListMultimap.create();
         for (final UnlabelledDependency dep : dependencies) {
             if (showDependency(dep, parse)) {
                 System.out.println(dependencyToString(parse, dep));
@@ -162,15 +162,12 @@ public class ConvertSRLToAMRGraph {
                     to = dep.getFirstArgumentIndex();
 //                        label = ":unk";
                     label = ":ANUM" + dep.getArgNumber();
-                }                
+                }
                 AMRNode fromNode = getNode(parse, leafIdToNode, varCounter, from);
                 if (isCopulaVerb(fromNode)) {
                     copulaNodes.add(fromNode);
                 }
                 rootNodes.add(fromNode);
-                if (startsWithPos(parse, to, "IN")) {// make note of preposition node and its' parent, but don't add to incidence list
-                    prepNodeIdToParentMap.put(to, new ParentAMRNodeLabel(fromNode, label));
-                }
                 // particle arguments: don't add separate edge, but append them to predicate node name
                 if (isCategory(parse, to, Category.PR)) {
                     fromNode.setConceptName(String.format("%s-%s", fromNode.getConceptName(), parse.getLeaves().get(to).getWord()));
@@ -180,6 +177,9 @@ public class ConvertSRLToAMRGraph {
                     if (isCopulaVerb(fromNode)) {
                         copulaNodes.add(fromNode);
                     }
+                    if (startsWithPos(parse, to, "IN")) {// make note of preposition node and its' parent, but don't add to incidence list
+                        prepNodeIdToParentMap.put(toNode, new ParentAMRNodeLabel(fromNode, label));
+                    }
                     graph.addLabelledEdge(fromNode, toNode, label);
                     //result.append(String.format("<%s, %s, %s>\n", fromNode.getConceptName(), toNode.getConceptName(), label));
                 }
@@ -187,7 +187,7 @@ public class ConvertSRLToAMRGraph {
         } // for
         rootNodes.removeAll(toNodes); // root nodes are only the ones that have no inner edge pointing at them.            
         // tackle predicate adjectives ('noun is adj') and 'noun is noun' cases, by introducing the :domain edge
-//        processCopulaNodes(copulaNodes, rootNodes, toNodes, graph);
+        processCopulaNodes(copulaNodes, rootNodes, toNodes, graph);
         processPrepositionNodes(rootNodes, prepNodeIdToParentMap, graph);
 //        assert !rootNodes.isEmpty() : "No root(s) node(s) found";
     }
@@ -317,18 +317,66 @@ public class ConvertSRLToAMRGraph {
         }
         rootNodes.addAll(newCandRootNodes);
     }
-    
+
     /**
      *
-     * Remove single edges rooted at preposition nodes that contain nodes being
-     * used elsewhere. Essentially, we want to get rid of superfluous edges
-     * between prepositions and re-entrance nodes.
+     * For all relations that contain a preposition that has been flipped, i.e.,
+     * the prep used to be the head under CCG, keep only those that are now
+     * governed by a verb or a root node. Then for what remains, try to combine
+     * them together by going through nodes that govern the same preposition,
+     * according to the following:<br>
+     * <ol>
+     * <li>for every non-verb head of the prep node, attach it below all verb
+     * nodes that are also attached to the same preposition. Omit the
+     * preposition node.</li>
+     * <li>if there are exactly TWO verb nodes attached to the same preposition,
+     * chain them; the head node becomes the leftmost in the sentence. Keep the
+     * preposition node and append the second verb node below the preposition,
+     * with label: op1</li>
+     * </ol>
+     * Finally, remove single edges rooted at preposition nodes that contain
+     * nodes being used elsewhere. Essentially, we want to get rid of
+     * superfluous edges between prepositions and re-entrance nodes.
      *
      * @param rootNodes
      * @param graph
      */
-    private void processPrepositionNodes(Set<AMRNode> rootNodes, Multimap<Integer, ParentAMRNodeLabel> prepNodeIdToParentMap, AMRGraph graph) {
+    private void processPrepositionNodes(Set<AMRNode> rootNodes, Multimap<AMRNode, ParentAMRNodeLabel> prepNodeIdToParentMap, AMRGraph graph) {
         Set<AMRNode> newCandRootNodes = new HashSet<>();
+        prepNodeIdToParentMap.keySet().stream().forEach((prepNode) -> {
+            List<ParentAMRNodeLabel> verbParents = new ArrayList<>();
+            List<AMRNode> nonVerbRootParents = new ArrayList<>();
+            prepNodeIdToParentMap.get(prepNode).stream().forEach((parent) -> {
+                // make note of verb/root parent nodes 
+                if (startsWithPos(parent.parentNode, "VB")) {
+                    verbParents.add(parent);
+                } else if (rootNodes.contains(parent.parentNode)) {
+                    nonVerbRootParents.add(parent.parentNode);
+                } else { // remove preposition nodes not governed by verb or root node
+                    graph.removeEdge(parent.parentNode, prepNode);
+                }
+            });
+            // for each root non-verb node, attach it to all verb parents. 
+            // Remove the preposition edge from the graph and the prep node from the list of root nodes.
+            nonVerbRootParents.stream().forEach(child -> {
+                verbParents.stream().forEach(parent -> {
+                    graph.addLabelledEdge(parent.parentNode, child, parent.label);
+                    graph.removeEdge(parent.parentNode, prepNode);
+                });
+                graph.removeEdge(child, prepNode);
+                rootNodes.remove(child);
+            });
+            // if we have exactly two verb parents, chain them given their respective order in the sentence, 
+            // and keep the preposition in the 'middle'
+            if (verbParents.size() == 2 && nonVerbRootParents.isEmpty()) {
+                ParentAMRNodeLabel childVerb = verbParents.get(0).parentNode.isBefore(verbParents.get(1).parentNode)
+                        ? verbParents.get(1) : verbParents.get(0);
+                graph.addLabelledEdge(prepNode, childVerb.parentNode, "op1");
+                graph.removeEdge(childVerb.parentNode, prepNode);
+                rootNodes.remove(childVerb.parentNode);
+            }
+        });
+        // Take care of single edges rootes at preposition nodes
         Iterator<AMRNode> it = rootNodes.iterator();
         while (it.hasNext()) {
             AMRNode root = it.next();
@@ -518,6 +566,11 @@ public class ConvertSRLToAMRGraph {
         public ParentAMRNodeLabel(AMRNode parent, String label) {
             this.parentNode = parent;
             this.label = label;
+        }
+
+        @Override
+        public String toString() {
+            return parentNode + " " + label;
         }
     }
 
