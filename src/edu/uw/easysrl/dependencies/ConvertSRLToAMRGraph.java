@@ -1,6 +1,8 @@
 package edu.uw.easysrl.dependencies;
 
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.HashMultiset;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.Multiset;
 import edu.uw.easysrl.dependencies.AMRGraph.EasyProposition;
 import edu.uw.easysrl.lemmatizer.MorphaStemmer;
@@ -57,7 +59,7 @@ public class ConvertSRLToAMRGraph {
         Set<AMRNode> copulaNodes = new HashSet<>();
         Map<Integer, ParentAMRNodeLabel> prepNodeIdToParentMap = new HashMap<>();
         List<ResolvedDependency> list = dependencies == null ? parse.getAllLabelledDependencies() : dependencies;
-        for (final ResolvedDependency dep : list) {            
+        for (final ResolvedDependency dep : list) {
             if (showDependency(dep, parse)) {
                 System.out.println(dependencyToString(parse, dep));
                 String label;
@@ -122,8 +124,8 @@ public class ConvertSRLToAMRGraph {
         Multiset<Character> varCounter = HashMultiset.create();
         Set<AMRNode> toNodes = new HashSet<>();
         Set<AMRNode> copulaNodes = new HashSet<>();
-        Map<Integer, ParentAMRNodeLabel> prepNodeIdToParentMap = new HashMap<>();
-        for (final UnlabelledDependency dep : dependencies) {            
+        Multimap<Integer, ParentAMRNodeLabel> prepNodeIdToParentMap = ArrayListMultimap.create();
+        for (final UnlabelledDependency dep : dependencies) {
             if (showDependency(dep, parse)) {
                 System.out.println(dependencyToString(parse, dep));
                 String label;
@@ -139,7 +141,7 @@ public class ConvertSRLToAMRGraph {
 //                    from = dep.getFirstArgumentIndex();
 //                    to = dep.getHead();
 //                } else // Draw in some extra CCG dependencies for nouns and adjectives.
-                       // Invert arc direction (used to be from=pred, to=arg)
+                // Invert arc direction (used to be from=pred, to=arg)
 //                {
                 if (isCategory(parse, dep.getHead(), Category.ADJECTIVE)
                         || startsWithPos(parse, dep.getHead(), "JJ")) {
@@ -151,7 +153,7 @@ public class ConvertSRLToAMRGraph {
 //                        from = dep.getFirstArgumentIndex();
 //                        to = dep.getHead();
 //                        label = ":APREPNUM" + dep.getFirstArgumentIndex();
-                } else if(dep.getCategory().isFunctionIntoModifier()) {
+                } else if (dep.getCategory().isFunctionIntoModifier()) {
                     from = dep.getFirstArgumentIndex();
                     to = dep.getHead();
                     label = String.format(":%s_%s", getWord(parse, to), dep.getCategory());
@@ -160,26 +162,18 @@ public class ConvertSRLToAMRGraph {
                     to = dep.getFirstArgumentIndex();
 //                        label = ":unk";
                     label = ":ANUM" + dep.getArgNumber();
-                }
-//                }
-                // take care of preposition nodes: if they already appeared elsewhere, then append their child to their parent      
-                ParentAMRNodeLabel fromNodeLabel = prepNodeIdToParentMap.get(from);
-                AMRNode fromNode;
-                if (fromNodeLabel == null) {
-                    fromNode = getNode(parse, leafIdToNode, varCounter, from);
-                } else {
-                    fromNode = fromNodeLabel.parentNode;
-                    label = fromNodeLabel.label;
-                }
+                }                
+                AMRNode fromNode = getNode(parse, leafIdToNode, varCounter, from);
                 if (isCopulaVerb(fromNode)) {
                     copulaNodes.add(fromNode);
                 }
                 rootNodes.add(fromNode);
+                if (startsWithPos(parse, to, "IN")) {// make note of preposition node and its' parent, but don't add to incidence list
+                    prepNodeIdToParentMap.put(to, new ParentAMRNodeLabel(fromNode, label));
+                }
                 // particle arguments: don't add separate edge, but append them to predicate node name
                 if (isCategory(parse, to, Category.PR)) {
                     fromNode.setConceptName(String.format("%s-%s", fromNode.getConceptName(), parse.getLeaves().get(to).getWord()));
-//                } else if (startsWithPos(parse, to, "IN")) { // make note of preposition node and its' parent, but don't add to incidence list
-//                    prepNodeIdToParentMap.put(to, new ParentAMRNodeLabel(fromNode, label));
                 } else {
                     AMRNode toNode = getNode(parse, leafIdToNode, varCounter, to);
                     toNodes.add(toNode);
@@ -194,7 +188,7 @@ public class ConvertSRLToAMRGraph {
         rootNodes.removeAll(toNodes); // root nodes are only the ones that have no inner edge pointing at them.            
         // tackle predicate adjectives ('noun is adj') and 'noun is noun' cases, by introducing the :domain edge
 //        processCopulaNodes(copulaNodes, rootNodes, toNodes, graph);
-//        processPrepositionNodes(rootNodes, graph);
+        processPrepositionNodes(rootNodes, prepNodeIdToParentMap, graph);
 //        assert !rootNodes.isEmpty() : "No root(s) node(s) found";
     }
 
@@ -212,7 +206,7 @@ public class ConvertSRLToAMRGraph {
     public void unvisit() {
         rootNodes.stream().forEach(graph::unvisit);
     }
-    
+
     public void printAmrPropositions(final StringBuilder result) {
 
         getPropositions().stream().forEach((p) -> result.append(p).append("\n"));
@@ -323,6 +317,34 @@ public class ConvertSRLToAMRGraph {
         }
         rootNodes.addAll(newCandRootNodes);
     }
+    
+    /**
+     *
+     * Remove single edges rooted at preposition nodes that contain nodes being
+     * used elsewhere. Essentially, we want to get rid of superfluous edges
+     * between prepositions and re-entrance nodes.
+     *
+     * @param rootNodes
+     * @param graph
+     */
+    private void processPrepositionNodes(Set<AMRNode> rootNodes, Multimap<Integer, ParentAMRNodeLabel> prepNodeIdToParentMap, AMRGraph graph) {
+        Set<AMRNode> newCandRootNodes = new HashSet<>();
+        Iterator<AMRNode> it = rootNodes.iterator();
+        while (it.hasNext()) {
+            AMRNode root = it.next();
+            if (startsWithPos(root, "IN") && graph.get(root).size() == 1) {
+                AMRNode toNode = graph.get(root).toArray(new AMREdge[0])[0].getTarget();
+                if (graph.containsEdgeExcluding(root, toNode)) {
+                    it.remove();
+                    graph.removeEdge(root, toNode);
+                    if (isOrphanNodeWithChildren(toNode, rootNodes, graph)) {
+                        newCandRootNodes.add(toNode);
+                    }
+                }
+            }
+        }
+        rootNodes.addAll(newCandRootNodes);
+    }
 
     private boolean isOrphanNodeWithChildren(AMRNode node, Set<AMRNode> rootNodes, AMRGraph graph) {
         Collection<AMREdge> children = graph.get(node);
@@ -380,19 +402,19 @@ public class ConvertSRLToAMRGraph {
     private String getWord(final SyntaxTreeNode parse, final int leafId) {
         return parse.getLeaves().get(leafId).getWord();
     }
-    
+
     private String dependencyToString(final SyntaxTreeNode parse, UnlabelledDependency dep) {
         int head = dep.getHead();
         int arg = dep.getFirstArgumentIndex();
         return String.format("%s\t%s -> %s [%s] %s %s", dep, getWord(parse, head), getWord(parse, arg), dep.getArgNumber(), dep.getCategory(), dep.getCategory().isFunctionIntoModifier());
     }
-    
+
     private String dependencyToString(final SyntaxTreeNode parse, ResolvedDependency dep) {
         int head = dep.getPropbankPredicateIndex();
         int arg = dep.getPropbankArgumentIndex();
         return String.format("%s\t%s -> %s [%s] %s %s", dep, getWord(parse, head), getWord(parse, arg), dep.getArgument(), dep.getCategory(), dep.getCategory().isFunctionIntoModifier());
     }
-    
+
     /**
      *
      * Decide which dependencies are worth showing.
@@ -424,7 +446,7 @@ public class ConvertSRLToAMRGraph {
             // Prepositions: CCG treats them as heads, but we need to swap them later on with their dependent
             return true;
         } else if (dep.getCategory() == Category.CONJ) {
-            return true;       
+            return true;
         } else {
             return false;
         }
