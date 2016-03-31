@@ -371,6 +371,14 @@ public class Coindexation implements Serializable {
 			return left.getLeftMost();
 		}
 	}
+        
+	public Coindexation getRightMost() {
+		if (right == null) {
+			return this;
+		} else {
+			return right.getRightMost();
+		}
+	}
 
 	int getMaxID() {
 		int result = 0;

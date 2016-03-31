@@ -6,7 +6,7 @@ import java.util.Objects;
 import edu.uw.easysrl.syntax.grammar.Category;
 import edu.uw.easysrl.syntax.grammar.Preposition;
 
-class UnresolvedDependency extends Dependency {
+public class UnresolvedDependency extends Dependency {
 
 	/**
 	 *
@@ -14,7 +14,7 @@ class UnresolvedDependency extends Dependency {
 	private static final long serialVersionUID = -9006670237313656096L;
 	final int argumentID;
 
-	UnresolvedDependency(final int head, final Category category, final int argNumber, final int argumentID,
+	public UnresolvedDependency(final int head, final Category category, final int argNumber, final int argumentID,
 			final Preposition preposition) {
 		super(head, argNumber, category, preposition);
 		this.argumentID = argumentID;

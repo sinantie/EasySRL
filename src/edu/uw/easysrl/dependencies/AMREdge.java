@@ -6,7 +6,7 @@ import java.util.Objects;
 public class AMREdge implements Serializable{
     
     private static final long serialVersionUID = 1L;    
-    private final String label;
+    private String label;
     private final AMRNode target;
 
     public AMREdge(String label, AMRNode target) {
@@ -20,6 +20,10 @@ public class AMREdge implements Serializable{
 
     public String getLabel() {
         return label;
+    }
+
+    public void setLabel(String label) {
+        this.label = label;
     }
 
     @Override

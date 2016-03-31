@@ -119,8 +119,14 @@ public class DependencyStructure implements Serializable {
 	}
 
 	public DependencyStructure conjunction() {
-		return new DependencyStructure(new Coindexation(coindexation, coindexation, coindexation.idOrHead),
-				unresolvedDependencies, true);
+            final Set<UnresolvedDependency> newUnresolvedDependencies = new HashSet<>();
+            final Set<UnresolvedDependency> normalizedUnresolvedDependencies = new HashSet<>(newUnresolvedDependencies.size());
+            final UnifyingSubstitution substitution = new UnifyingSubstitution(Collections.EMPTY_MAP, Collections.EMPTY_MAP, Collections.singletonMap(coindexation.getID().head, new Coindexation.IDorHead(-1)));
+            Coindexation newCo = new Coindexation(coindexation, substitution.applyTo(coindexation), coindexation.idOrHead);
+            newCo = normalize(newCo, newUnresolvedDependencies,
+				normalizedUnresolvedDependencies, Collections.EMPTY_LIST, 1);
+            return new DependencyStructure(newCo,
+				newUnresolvedDependencies, true);
 	}
 
 	/**
@@ -268,4 +274,8 @@ public class DependencyStructure implements Serializable {
 		updateDependencies(this, substitution, newUnresolvedDependencies, newResolvedDependencies);
 		updateDependencies(other, substitution, newUnresolvedDependencies, newResolvedDependencies);
 	}
+
+        public Set<UnresolvedDependency> getUnresolvedDependencies() {
+            return unresolvedDependencies;
+        }
 }

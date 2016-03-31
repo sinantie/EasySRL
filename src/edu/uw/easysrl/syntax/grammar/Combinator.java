@@ -13,6 +13,7 @@ import java.util.Map;
 
 import edu.uw.easysrl.dependencies.DependencyStructure;
 import edu.uw.easysrl.dependencies.UnlabelledDependency;
+import edu.uw.easysrl.dependencies.UnresolvedDependency;
 import edu.uw.easysrl.semantics.AtomicSentence;
 import edu.uw.easysrl.semantics.ConnectiveSentence;
 import edu.uw.easysrl.semantics.ConnectiveSentence.Connective;
@@ -262,13 +263,21 @@ public abstract class Combinator {
 
 		@Override
 		public DependencyStructure apply(final DependencyStructure left, final DependencyStructure right,
-				final List<UnlabelledDependency> resolvedDependencies) {
-			return right.conjunction();
+				final List<UnlabelledDependency> resolvedDependencies) {                        
+                        
+			DependencyStructure result = right.conjunction();
+                        resolvedDependencies.add(new UnlabelledDependency(left.getArbitraryHead(), Category.CONJ, 0, 
+                                Arrays.asList(right.getArbitraryHead()), Preposition.UNSPECIFIED));
+                        result.getUnresolvedDependencies().add(new UnresolvedDependency(left.getArbitraryHead(), Category.CONJ, 0, 
+                                result.getCoindexation().getRight().getID().getID(), Preposition.UNSPECIFIED));
+//                                result.getCoindexation().getRight().getRight().getID().getID(), Preposition.UNSPECIFIED));
+//                        result.getCoindexation().getRight().getID().getHeadIndices().get(0);
+                        return result;
 		}
 
 		@Override
 		public Logic apply(final Logic left, final Logic right) {
-			if (right.getArguments().size() == 0) {
+			if (right.getArguments().isEmpty()) {
 				// NP conjunctions
 				final Variable x = new Variable(right.getType());
 				return LambdaExpression.make(new Set(x, right), x);

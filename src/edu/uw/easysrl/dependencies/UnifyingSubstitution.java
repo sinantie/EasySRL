@@ -12,12 +12,12 @@ import edu.uw.easysrl.syntax.grammar.Preposition;
  * Used to unify two dependency structures
  *
  */
-class UnifyingSubstitution {
+public class UnifyingSubstitution {
 	private final Map<Integer, Coindexation.IDorHead> substitutions;
 	private final Map<Integer, Preposition> prepositionSubstitutions;
 	private final Map<List<Integer>, Coindexation.IDorHead> headSubstitutions;
 
-	private UnifyingSubstitution(final Map<Integer, Coindexation.IDorHead> substitutions,
+	public UnifyingSubstitution(final Map<Integer, Coindexation.IDorHead> substitutions,
 			final Map<Integer, Preposition> prepositionSubstitutions,
 			final Map<List<Integer>, Coindexation.IDorHead> headSubstitutions) {
 		super();
@@ -81,6 +81,7 @@ class UnifyingSubstitution {
 					headSubstitutions.put(left.idOrHead.head, new Coindexation.IDorHead(coordinatedHead));
 				}
 				headSubstitutions.put(right.idOrHead.head, new Coindexation.IDorHead(coordinatedHead));
+                                substitutions.put(left.idOrHead.id, right.idOrHead);
 			} else {
 				// Update the left ID to point to the right Head
 				substitutions.put(left.idOrHead.id, right.idOrHead);
