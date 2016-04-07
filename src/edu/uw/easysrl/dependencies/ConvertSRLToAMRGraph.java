@@ -12,7 +12,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -31,18 +30,21 @@ public class ConvertSRLToAMRGraph {
     private final AMRLexicon lexicon;
     private final Set<AMRNode> rootNodes;
     private final AMRGraph graph;
+    private final Map<String, String> wordToLemma;
 
     public ConvertSRLToAMRGraph(SyntaxTreeNode parse, AMRLexicon lexicon) {
         this.parse = parse;
         this.lexicon = lexicon;
+        this.wordToLemma = Collections.EMPTY_MAP;
         this.rootNodes = new HashSet<>();
         this.graph = new AMRGraph();
         convertSrl(null);
     }
 
-    public ConvertSRLToAMRGraph(SyntaxTreeNode parse, Collection<UnlabelledDependency> dependencies, AMRLexicon lexicon) {
+    public ConvertSRLToAMRGraph(SyntaxTreeNode parse, Collection<UnlabelledDependency> dependencies, AMRLexicon lexicon, Map<String, String> wordToLemma) {
         this.parse = parse;
         this.lexicon = lexicon;
+        this.wordToLemma = wordToLemma;
         this.rootNodes = new HashSet<>();
         this.graph = new AMRGraph();
         convertUnlabelled(dependencies);
@@ -51,6 +53,7 @@ public class ConvertSRLToAMRGraph {
     public ConvertSRLToAMRGraph(SyntaxTreeNode parse, List<ResolvedDependency> dependencies, AMRLexicon lexicon) {
         this.parse = parse;
         this.lexicon = lexicon;
+        this.wordToLemma = Collections.EMPTY_MAP;
         this.rootNodes = new HashSet<>();
         this.graph = new AMRGraph();
         convertSrl(dependencies);
@@ -129,7 +132,7 @@ public class ConvertSRLToAMRGraph {
         Set<AMRNode> toNodes = new HashSet<>();
         Set<AMRNode> copulaNodes = new HashSet<>();
         Set<AMRNode> conjNodes = new HashSet<>();
-        Multimap<AMRNode, NodeWithLabel> prepNodeIdToParentMap = ArrayListMultimap.create();        
+        Multimap<AMRNode, NodeWithLabel> prepNodeIdToParentMap = ArrayListMultimap.create();
         dependencies.stream().forEach(dep -> {
             if (showDependency(dep, parse)) {
 //                System.out.println(dependencyToString(parse, dep));
@@ -143,7 +146,7 @@ public class ConvertSRLToAMRGraph {
                 } else if (dep.getCategory().isFunctionIntoModifier() || startsWithPos(parse, dep.getHead(), "IN")) {
                     from = dep.getFirstArgumentIndex();
                     to = dep.getHead();
-                    label = String.format(":%s_%s", getWord(parse, to), dep.getCategory());                
+                    label = String.format(":%s_%s", getWord(parse, to), dep.getCategory());
                 } else {
                     from = dep.getHead();
                     to = dep.getFirstArgumentIndex();
@@ -154,7 +157,7 @@ public class ConvertSRLToAMRGraph {
                 if (isCopulaVerb(fromNode)) {
                     copulaNodes.add(fromNode);
                 }
-                if(dep.getCategory().equals(Category.CONJ)) {
+                if (dep.getCategory().equals(Category.CONJ)) {
                     conjNodes.add(fromNode);
                 }
                 rootNodes.add(fromNode);
@@ -194,21 +197,24 @@ public class ConvertSRLToAMRGraph {
             graph.visit(root, 1, result);
             result.append("\n");
         });
+        unvisit();
     }
 
-    public void unvisit() {
+    private void unvisit() {
         rootNodes.stream().forEach(graph::unvisit);
     }
 
     public void printAmrPropositions(final StringBuilder result) {
 
-        getPropositions().stream().forEach((p) -> result.append(p).append("\n"));
+        getPropositions(true).stream().forEach((p) -> result.append(p).append("\n"));
     }
 
-    public List<EasyProposition> getPropositions() {
-        unvisit();
+    public List<EasyProposition> getPropositions(boolean unvisitAfter) {
         final List<EasyProposition> props = new ArrayList<>();
         rootNodes.stream().forEach(root -> graph.getPropositions(root, props));
+        if (unvisitAfter) {
+            unvisit();
+        }
         return props;
     }
 
@@ -384,10 +390,10 @@ public class ConvertSRLToAMRGraph {
         conjNodes.stream().forEach(conj -> {
             List<AMREdge> edges = new ArrayList<>(graph.get(conj));
             edges.sort((AMREdge o1, AMREdge o2) -> o1.getTarget().isBefore(o2.getTarget()) ? -1 : 1);
-            IntStream.range(0, edges.size()).forEach(i -> edges.get(i).setLabel(":op" + (i+1)));
+            IntStream.range(0, edges.size()).forEach(i -> edges.get(i).setLabel(":op" + (i + 1)));
         });
     }
-    
+
     private boolean isOrphanNodeWithChildren(AMRNode node, Set<AMRNode> rootNodes, AMRGraph graph) {
         Collection<AMREdge> children = graph.get(node);
         return !(graph.containsEdge(node) || children == null || children.isEmpty() || rootNodes.contains(node));
@@ -397,7 +403,7 @@ public class ConvertSRLToAMRGraph {
         AMRNode node = leafIdToNode.get(leafId);
         if (node == null) {
             SyntaxTreeNode.SyntaxTreeNodeLeaf leaf = parse.getLeaves().get(leafId);
-            String lemma = leafToLemma(leaf);
+            String lemma = leafToLemma(leaf.getWord(), leaf.getPos());
             String varName = getVariableName(lemma, varCounter);
             node = new AMRNode(lemma, varName, leaf.getPos(), leafId);
             leafIdToNode.put(leafId, node);
@@ -405,9 +411,11 @@ public class ConvertSRLToAMRGraph {
         return node;
     }
 
-    private String leafToLemma(final SyntaxTreeNode.SyntaxTreeNodeLeaf leaf) {
-        return MorphaStemmer.stemToken(leaf.getWord().toLowerCase().
-                replaceAll(" ", "_").replaceAll(":", "-").replaceAll("/", "-").replaceAll("\\(", "LRB").replaceAll("\\)", "RRB"), leaf.getPos());
+    private String leafToLemma(final String word, final String pos) {
+        return wordToLemma.isEmpty()
+                ? MorphaStemmer.stemToken(word.toLowerCase().
+                        replaceAll(" ", "_").replaceAll(":", "-").replaceAll("/", "-").replaceAll("\\(", "LRB").replaceAll("\\)", "RRB"), pos)
+                : wordToLemma.getOrDefault(word, word);
     }
 
     /**
@@ -430,11 +438,15 @@ public class ConvertSRLToAMRGraph {
     }
 
     private boolean startsWithPos(final SyntaxTreeNode parse, final int leafId, final String posTag) {
-        return parse.getLeaves().get(leafId).getPos().startsWith(posTag);
+        return parse.getLeaves().get(leafId).getPos() != null && parse.getLeaves().get(leafId).getPos().startsWith(posTag);
     }
 
     private boolean startsWithPos(final AMRNode node, final String posTag) {
-        return node.getPos().startsWith(posTag);
+        return node.getPos() != null && node.getPos().startsWith(posTag);
+    }
+    
+    private boolean startsWithPos(final SyntaxTreeNode.SyntaxTreeNodeLeaf node, final String posTag) {
+        return node.getPos() != null && node.getPos().startsWith(posTag);
     }
 
     private boolean isCopulaVerb(final AMRNode node) {
@@ -498,23 +510,23 @@ public class ConvertSRLToAMRGraph {
         final SyntaxTreeNode.SyntaxTreeNodeLeaf predicateNode = parse.getLeaves().get(dep.getHead());
         if (dep.getHead() == dep.getFirstArgumentIndex()) {
             return false;
-        } else if (predicateNode.getPos().startsWith("JJ") && !dep.getCategory().equals(Category.valueOf("NP/N"))) {
+        } else if (startsWithPos(predicateNode, "JJ") && !dep.getCategory().equals(Category.valueOf("NP/N"))) {
             // Adjectives, excluding determiners
             return true;
         } else if (isAuxilliaryVerb(dep, parse, predicateNode)) {
             // Exclude auxiliary verbs. Hopefully the SRL will have already identified the times this category isn't
             // an auxiliary.
             return false;
-        } else if (predicateNode.getPos().startsWith("NN") && dep.getCategory().isFunctionInto(Category.N)) {
+        } else if (startsWithPos(predicateNode, "NN") && dep.getCategory().isFunctionInto(Category.N)) {
             // Checking category to avoid annoying getting a "subject" dep on yesterday|NN|(S\NP)\(S\NP)
             return true;
-        } else if (predicateNode.getPos().startsWith("VB")) {
+        } else if (startsWithPos(predicateNode, "VB")) {
             // Other verb arguments, e.g. particles
             return true;
-        } else if (predicateNode.getPos().startsWith("IN")) {
+        } else if (startsWithPos(predicateNode, "IN")) {
             // Prepositions: CCG treats them as heads, but we need to swap them later on with their dependent
             return true;
-        } else if ((dep.getCategory().equals(Category.ADVERB) || predicateNode.getPos().startsWith("RB")) && startsWithPos(parse, dep.getFirstArgumentIndex(), "VB")) {
+        } else if ((dep.getCategory().equals(Category.ADVERB) || startsWithPos(predicateNode, "RB")) && startsWithPos(parse, dep.getFirstArgumentIndex(), "VB")) {
             return true;
         } else if (dep.getCategory().equals(Category.CONJ)) {
             return true;
@@ -537,7 +549,7 @@ public class ConvertSRLToAMRGraph {
      */
     private boolean isAuxilliaryVerb(final ResolvedDependency dep, final SyntaxTreeNode parse, final SyntaxTreeNode.SyntaxTreeNodeLeaf predicateNode) {
         if (dep.getCategory().toString().replaceAll("\\[\\w+\\]", "").equals("(S\\NP)/(S\\NP)")) {
-            return !(leafToLemma(predicateNode).equals("be") && !startsWithPos(parse, dep.getArgumentIndex(), "VB"));
+            return !(leafToLemma(predicateNode.getWord(), predicateNode.getPos()).equals("be") && !startsWithPos(parse, dep.getArgumentIndex(), "VB"));
         }
         return false;
     }
@@ -546,11 +558,11 @@ public class ConvertSRLToAMRGraph {
 
     private boolean isAuxilliaryVerb(final UnlabelledDependency dep, final SyntaxTreeNode parse, final SyntaxTreeNode.SyntaxTreeNodeLeaf predicateNode) {
         if (dep.getCategory().toString().replaceAll("\\[\\w+\\]", "").equals("(S\\NP)/(S\\NP)")) {
-            String lemma = leafToLemma(predicateNode);
+            String lemma = leafToLemma(predicateNode.getWord(), predicateNode.getPos());
             return auxiliaries.contains(lemma) && !(lemma.equals("be") && !startsWithPos(parse, dep.getFirstArgumentIndex(), "VB"));
         }
         return false;
-    }    
+    }
 
     /**
      *

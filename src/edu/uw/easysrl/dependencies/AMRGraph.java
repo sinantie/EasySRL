@@ -195,6 +195,10 @@ public class AMRGraph implements Serializable {
             return role;
         }
 
+        public boolean predicateEqualsArgument() {
+            return getPredicateStr().equals(getArgumentStr());
+        }
+        
         @Override
         public String toString() {
             return String.format("%s,%s,%s", predicate.getConceptName(), argument.getConceptName(), role);
