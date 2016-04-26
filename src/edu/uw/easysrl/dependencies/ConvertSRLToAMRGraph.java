@@ -180,7 +180,7 @@ public class ConvertSRLToAMRGraph {
             } // if
         }); // for
         rootNodes.removeAll(toNodes); // root nodes are only the ones that have no inner edge pointing at them.            
-        // tackle predicate adjectives ('noun is adj') and 'noun is noun' cases, by introducing the :domain edge
+        // tackle predicate adjectives ('noun is adj') and 'noun is noun' cases, by introducing the :domain edge        
         processCopulaNodes(copulaNodes, rootNodes, toNodes, graph);
         processPrepositionNodes(rootNodes, prepNodeIdToParentMap, graph);
         processConjNodes(conjNodes, graph);
@@ -271,10 +271,12 @@ public class ConvertSRLToAMRGraph {
                 }
             } else if (children != null && children.size() == 1) {
                 AMRNode child = children.toArray(new AMREdge[0])[0].getTarget();
-                graph.removeAll(node);
-                rootNodes.remove(node);
-                if (!graph.containsEdge(child)) {
-                    toNodes.remove(child);
+                if (graph.get(node).isEmpty()) {
+                    graph.removeAll(node);
+                    rootNodes.remove(node);
+                    if (!graph.containsEdge(child)) {
+                        toNodes.remove(child);
+                    }
                 }
             }
         });
@@ -344,26 +346,31 @@ public class ConvertSRLToAMRGraph {
         prepNodeIdToParentMap.keySet().stream().forEach(prepNode -> {
             List<NodeWithLabel> orderedParents = new ArrayList<>(prepNodeIdToParentMap.get(prepNode));
             if (orderedParents.size() == 1) {
-                graph.removeEdge(orderedParents.get(0).parentNode, prepNode);
-                rootNodes.remove(orderedParents.get(0).parentNode);
+                AMRNode parent = orderedParents.get(0).parentNode;
+                graph.removeEdge(parent, prepNode);
+                if (graph.get(parent).isEmpty()) { // no more children left
+                    rootNodes.remove(parent);
+                }
             } else {
                 Collections.sort(orderedParents);
                 NodeWithLabel child = orderedParents.get(orderedParents.size() - 1);
                 NodeWithLabel parent = orderedParents.get(orderedParents.size() - 2);
-                String preposition = prepNode.getConceptName();
-                if (preposition.equals("before") || preposition.equals("after")) {
-                    graph.addLabelledEdge(prepNode, child.parentNode, "op1");
-                    graph.removeEdge(child.parentNode, prepNode);
-                    rootNodes.remove(child.parentNode);
-                } else {
-                    graph.addLabelledEdge(parent.parentNode, child.parentNode, parent.label);
-                    graph.removeEdge(parent.parentNode, prepNode);
-                    graph.removeEdge(child.parentNode, prepNode);
-                    rootNodes.remove(child.parentNode);
-                }
-                for (int i = 0; i < orderedParents.size() - 2; i++) {
-                    graph.removeEdge(orderedParents.get(i).parentNode, prepNode);
-                    rootNodes.remove(orderedParents.get(i).parentNode);
+                if (parent.parentNode.isBefore(prepNode) && prepNode.isBefore(child.parentNode)) {
+                    String preposition = prepNode.getConceptName();
+                    if (preposition.equals("before") || preposition.equals("after")) {
+                        graph.addLabelledEdge(prepNode, child.parentNode, "op1");
+                        graph.removeEdge(child.parentNode, prepNode);
+                        rootNodes.remove(child.parentNode);
+                    } else {
+                        graph.addLabelledEdge(parent.parentNode, child.parentNode, parent.label);
+                        graph.removeEdge(parent.parentNode, prepNode);
+                        graph.removeEdge(child.parentNode, prepNode);
+                        rootNodes.remove(child.parentNode);
+                    }
+                    for (int i = 0; i < orderedParents.size() - 2; i++) {
+                        graph.removeEdge(orderedParents.get(i).parentNode, prepNode);
+                        rootNodes.remove(orderedParents.get(i).parentNode);
+                    }
                 }
             }
         });
@@ -443,7 +450,7 @@ public class ConvertSRLToAMRGraph {
     private boolean startsWithPos(final AMRNode node, final String posTag) {
         return node.getPos() != null && node.getPos().startsWith(posTag);
     }
-    
+
     private boolean startsWithPos(final SyntaxTreeNode.SyntaxTreeNodeLeaf node, final String posTag) {
         return node.getPos() != null && node.getPos().startsWith(posTag);
     }
@@ -453,7 +460,7 @@ public class ConvertSRLToAMRGraph {
     }
 
     private String getWord(final SyntaxTreeNode parse, final int leafId) {
-        return parse.getLeaves().get(leafId).getWord();
+        return parse.getLeaves().get(leafId).getWord().toLowerCase();
     }
 
     private String dependencyToString(final SyntaxTreeNode parse, UnlabelledDependency dep) {
@@ -507,7 +514,11 @@ public class ConvertSRLToAMRGraph {
 
     protected boolean showDependency(final UnlabelledDependency dep, final SyntaxTreeNode parse) {
         final SyntaxTreeNode.SyntaxTreeNodeLeaf predicateNode = parse.getLeaves().get(dep.getHead());
+        final SyntaxTreeNode.SyntaxTreeNodeLeaf argNode = parse.getLeaves().get(dep.getFirstArgumentIndex());
         if (dep.getHead() == dep.getFirstArgumentIndex()) {
+            return false;
+        } else if (startsWithPos(predicateNode, "DT") || startsWithPos(argNode, "DT")) {
+            // Determiners: CCG might erroneously attach an argument to a determiner, especially in incomplete sentences: avoid
             return false;
         } else if (startsWithPos(predicateNode, "JJ") && !dep.getCategory().equals(Category.valueOf("NP/N"))) {
             // Adjectives, excluding determiners
