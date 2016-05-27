@@ -17,6 +17,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 
 /**
@@ -25,6 +26,7 @@ import java.util.stream.IntStream;
  */
 public class ConvertSRLToAMRGraph {
 
+    private final Pattern FORMATTED_DATE = Pattern.compile("[0-9]{2,4}[-]?[0-9]{2}[-]?[0-9]{2}");    
     private final SyntaxTreeNode parse;
     private final AMRLexicon lexicon;
     private final Set<AMRNode> rootNodes;
@@ -460,7 +462,8 @@ public class ConvertSRLToAMRGraph {
     }
 
     private String getWord(final SyntaxTreeNode parse, final int leafId) {
-        return parse.getLeaves().get(leafId).getWord().toLowerCase();
+        String word = parse.getLeaves().get(leafId).getWord().toLowerCase();
+        return FORMATTED_DATE.matcher(word).matches() ? "formatted-date" : word;
     }
 
     private String dependencyToString(final SyntaxTreeNode parse, UnlabelledDependency dep) {

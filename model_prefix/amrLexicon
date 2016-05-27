@@ -1,0 +1,33 @@
+// Manual lexicon, to convert SRL to AMR output
+// Format is:
+// AMR	SRL	LEMMAS...
+// AMR roles start with semicolon (:), whereas concepts don't
+// If LEMMAS is empty, the interpretation will be used for all words with that category. Otherwise, it will only be used for the specified words (using their lower-cased lemmas).
+
+// ================
+// Roles
+CAU	:cause
+DIR	:direction
+LOC	:location
+MNR	:manner
+NEG	:polarity
+PRP	:purpose
+TMP	:time
+// temporary, until we decide how to tackle modals properly
+MOD	:modal
+// EXT
+// REC
+// PRD
+// DIS
+// ADV
+// ADJ
+
+// Concepts
+//can	MOD	possible-01
+////may	MOD	possible-01
+//may	MOD	permit-01
+//must	MOD	obligate-01
+////must	MOD	infer-01
+//should	MOD	recommend-01
+
+// words
